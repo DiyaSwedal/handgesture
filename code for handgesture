@@ -1,0 +1,101 @@
+import cv2
+import mediapipe as mp
+import pyttsx3
+import subprocess
+import webbrowser
+
+# Initialize Mediapipe and TTS
+mp_drawing = mp.solutions.drawing_utils
+mp_hands = mp.solutions.hands
+tts = pyttsx3.init()
+
+# Function to count fingers
+def count_fingers(hand_landmarks):
+    count = 0
+    tips_ids = [4, 8, 12, 16, 20]
+
+    # Thumb
+    if hand_landmarks.landmark[tips_ids[0]].x < hand_landmarks.landmark[tips_ids[0] - 1].x:
+        count += 1
+
+    # Other fingers
+    for id in range(1, 5):
+        if hand_landmarks.landmark[tips_ids[id]].y < hand_landmarks.landmark[tips_ids[id] - 2].y:
+            count += 1
+
+    return count
+
+# Action based on finger count
+def perform_action(count):
+    if count == 1:
+        tts.say("Opening Notepad")
+        tts.runAndWait()
+        subprocess.Popen(["notepad.exe"])
+    elif count == 2:
+        tts.say("Opening Google")
+        tts.runAndWait()
+        webbrowser.open("https://www.google.com")
+    elif count == 3:
+        tts.say("Text to Speech Activated")
+        tts.runAndWait()
+    else:
+        print("No action for this gesture")
+
+# OpenCV Webcam Feed
+cap = cv2.VideoCapture(0)
+
+with mp_hands.Hands(
+    min_detection_confidence=0.7,
+    min_tracking_confidence=0.7,
+    max_num_hands=1) as hands:
+
+    while cap.isOpened():
+        success, image = cap.read()
+        if not success:
+            continue
+
+        # Flip and convert
+        image = cv2.flip(image, 1)
+        image_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+
+        # Process image
+        results = hands.process(image_rgb)
+
+        if results.multi_hand_landmarks:
+            for hand_landmarks in results.multi_hand_landmarks:
+                mp_drawing.draw_landmarks(image, hand_landmarks, mp_hands.HAND_CONNECTIONS)
+
+                # Count fingers
+                finger_count = count_fingers(hand_landmarks)
+                cv2.putText(image, f'Fingers: {finger_count}', (10, 50),
+                            cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
+
+                # Trigger Action
+                perform_action(finger_count)
+
+        # Display the image
+        cv2.imshow('Gesture Controlled UI', image)
+
+        if cv2.waitKey(10) & 0xFF == ord('q'):
+            break
+
+cap.release()
+cv2.destroyAllWindows()
+
+import cv2
+
+cap = cv2.VideoCapture(1)  # or try 2
+
+
+while True:
+    ret, frame = cap.read()
+    if not ret:
+        print("Failed to grab frame")
+        break
+    cv2.imshow("Webcam Test", frame)
+
+    if cv2.waitKey(1) & 0xFF == ord('q'):
+        break
+
+cap.release()
+cv2.destroyAllWindows()
